@@ -1,0 +1,233 @@
+﻿@page "/viewscheduledmeetings"
+@using HouseholdChemistry.Shared.MeetingManagement.SearchGrid;
+
+@inject IJSRuntime js
+@inject IMeetingService meetingService
+@inject ISessionStorageService sessionStorage
+@inject NavigationManager navManager
+
+<style>
+    .headerWrapText {
+        word-wrap: break-word;
+    }
+</style>
+
+<PageTitle>Οικοχημική - Προγραμματισμένες Συναντήσεις</PageTitle>
+
+<br />
+<!-- Hide Right Click -->
+<div oncontextmenu="return false;">
+    <EditForm Model="searchScheduledMeetingsGridDTO" OnValidSubmit="GetListOfMeetings">
+        <DataAnnotationsValidator />
+        <div class="container">
+            <div class="container text-center">
+                <h3>Φίλτρα Αναζήτησης Προγραμματισμένων Συναντήσεων</h3><br>
+                <div class="row">
+                    <div class="col-sm-6">
+                        <div class="form-group">
+                            <label for="dateFrom" class="form-check-label">Ημερομηνία Έναρξης Αναζήτησης</label>
+                            <DateTimePicker id="dateFrom"
+                                            class="form-control"
+                                            @bind-Value="@searchScheduledMeetingsGridDTO.DateFrom"
+                                            DropDownDisplayMode="DateTimePickerDropDownDisplayMode.Calendar"
+                                            DropDownPosition="DropDownPosition.Bottom"
+                                            CalendarButton="true"
+                                            FormatString="dd-MM-yyyy" />
+                            <ValidationMessage For="@(()=> @searchScheduledMeetingsGridDTO.DateFrom)" />
+                        </div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="form-group">
+                            <label for="dateTo" class="form-check-label">Ημερομηνία Λήξης Αναζήτησης</label>
+                            <DateTimePicker id="dateTo"
+                                            class="form-control"
+                                            @bind-Value="@searchScheduledMeetingsGridDTO.DateTo"
+                                            DropDownDisplayMode="DateTimePickerDropDownDisplayMode.Calendar"
+                                            DropDownPosition="DropDownPosition.Bottom"
+                                            CalendarButton="true"
+                                            FormatString="dd-MM-yyyy" />
+                            <ValidationMessage For="@(()=> @searchScheduledMeetingsGridDTO.DateTo)" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <br />
+
+            <div class="row">
+                <div class="text-center mt-2">
+                    <button class="btn btn-primary" type="submit" id="startSearch">
+                        <span class="@_spinnerClassSearching" role="status" aria-hidden="true"></span>
+                        Αναζήτηση
+                    </button>
+                </div>
+            </div>
+            <br />
+            <br />
+
+            @if (meetingGridInfoResponseResult.Data != null && meetingGridInfoResponseResult.Data.Count > 0)
+            {
+                <div class="row">
+                    <Grid Id="meetingsGrid"
+                          Datasource="@meetingGridInfoResponseResult.Data"
+                          DataSourceSettings="@dataSourceSettings"
+                          Sorting="@dateSorting"
+                          Behavior="@behavior"
+                          Appearance="@appearance"
+                          Selection="@selection"
+                          Filtering="@filtering"
+                          Style="@gridStyle"
+                          Layout="@gridRowLayout">
+                        <Columns>
+                            <Column DataField="PlannedStartDate1" Label="Ημερομηνία Έναρξης" ClassName="@("headerWrapText")" DataType="date" CellsFormat="dd/MM/yyyy" Align="HorizontalAlignment.Right" CellsAlign="HorizontalAlignment.Right" Width="100"></Column>
+                            <Column DataField="ActualClosedDate" Label="Ημερομηνία Ολοκλήρωσης" ClassName="@("headerWrapText")" DataType="date" CellsFormat="dd/MM/yyyy" Align="HorizontalAlignment.Right" CellsAlign="HorizontalAlignment.Right" Width="100"></Column>
+                            <Column DataField="Name" Label="Πελάτης" Width="150"></Column>
+                            <Column DataField="Katastasi_Synantisis" Label="Κατάσταση" Template="statusTemplate" Width="200"></Column>
+                            <Column DataField="fCityCode" Label="Πόλη" Width="120"></Column>
+                            <Column DataField="fSiteDescription" Label="Υποκατάστημα"></Column>
+                            <Column DataField="fSiteAddress" Label="Διεύθυνση"></Column>
+                            <Column DataField="Notes" Label="Σχόλιο"></Column>
+                            <Column DataField="Code" Label="Κωδικός" Width="90"></Column>
+                            <Column DataField="IsProgrammed" Label="Προγραμματισμένη?" Template="checkTemplate" Align="HorizontalAlignment.Center" Width="80"></Column>
+                            <Column DataField="Url" Label="" Width="90" Template="@redirectTemplate" Align="HorizontalAlignment.Center"></Column>
+                        </Columns>
+                    </Grid>
+                </div>
+            }
+            else
+            {
+                <div class="row">
+                    @gridMessage
+                </div>
+            }
+
+        </div>
+        <br />
+        <br />
+    </EditForm>
+</div>
+
+<template id="redirectTemplate">
+    <div>
+        <a href="{{value}}" class="button">Αναλυτικά</a>
+    </div>
+</template>
+
+<template id="statusTemplate">
+    <div style="width: 100%; height:100%;">
+        <div smart-if="value == 'Ολοκληρώθηκε'">
+            <span style="margin-left: 7px; padding: 4px 18px; border-radius: 10px 5px; color: #fff; background: #013220;">Ολοκληρώθηκε</span>
+        </div>
+        <div smart-else>
+            <span style="margin-left: 7px; padding: 4px 18px; border-radius: 10px 5px; color: #fff; background: #0018F9">Ανοικτό</span>
+        </div>
+    </div>
+</template>
+
+@code {
+    private SearchScheduledMeetingsGridDTO searchScheduledMeetingsGridDTO = new SearchScheduledMeetingsGridDTO();
+    private ServiceResponse<List<GetMeetingGridInfoDTO>> meetingGridInfoResponseResult = new ServiceResponse<List<GetMeetingGridInfoDTO>>();
+
+    private string salesPersonName = String.Empty;
+
+    private string _spinnerClassSearching = string.Empty;
+
+    #region "Grid Properties"
+    private string redirectTemplate = "#redirectTemplate";
+    private string statusTemplate = "#statusTemplate";
+    string checkTemplate = "checkBox";
+    private string gridStyle = string.Empty;
+
+    private string gridMessage = String.Empty;
+
+    private GridDataSourceSettings dataSourceSettings = new GridDataSourceSettings();
+
+    private GridSorting dateSorting = new GridSorting()
+        {
+            Enabled = true
+        };
+
+    private GridBehavior behavior = new GridBehavior()
+        {
+            ColumnResizeMode = GridResizeMode.GrowAndShrink
+        };
+
+    private GridAppearance appearance = new GridAppearance()
+        {
+            AlternationCount = 2,
+            ShowRowLines = false,
+            ShowColumnLines = false
+        };
+
+    private GridSelection selection = new GridSelection()
+        {
+            Enabled = false,
+            Mode = GridSelectionMode.One
+        };
+
+    private GridFiltering filtering = new GridFiltering()
+        {
+            Enabled = true
+        };
+
+    private GridLayout gridRowLayout = new GridLayout()
+        {
+            RowHeight = 50
+        };
+    #endregion
+
+    protected override async Task OnInitializedAsync()
+    {
+        //await ChangeDateLocalization();
+
+        dataSourceSettings = new GridDataSourceSettings()
+            {
+                DataFields = new List<IGridDataSourceSettingsDataField>()
+                {
+                    new GridDataSourceSettingsDataField() { Name = "PlannedStartDate1", DataType = GridDataSourceSettingsDataFieldDataType.Date },
+                    new GridDataSourceSettingsDataField() { Name = "ActualClosedDate", DataType = GridDataSourceSettingsDataFieldDataType.Date },
+                    new GridDataSourceSettingsDataField() { Name = "Name", DataType = GridDataSourceSettingsDataFieldDataType.String },
+                    new GridDataSourceSettingsDataField() { Name = "Katastasi_Synantisis", DataType = GridDataSourceSettingsDataFieldDataType.String },
+                    new GridDataSourceSettingsDataField() { Name = "fCityCode", DataType = GridDataSourceSettingsDataFieldDataType.String },
+                    new GridDataSourceSettingsDataField() { Name = "fSiteDescription", DataType = GridDataSourceSettingsDataFieldDataType.String },
+                    new GridDataSourceSettingsDataField() { Name = "fSiteAddress", DataType = GridDataSourceSettingsDataFieldDataType.String },
+                    new GridDataSourceSettingsDataField() { Name = "Notes", DataType = GridDataSourceSettingsDataFieldDataType.String},
+                    new GridDataSourceSettingsDataField() { Name = "Code", DataType = GridDataSourceSettingsDataFieldDataType.String },
+                    new GridDataSourceSettingsDataField() { Name = "IsProgrammed", DataType = GridDataSourceSettingsDataFieldDataType.Boolean },
+                    new GridDataSourceSettingsDataField() { Name = "Url", DataType = GridDataSourceSettingsDataFieldDataType.String}
+
+                },
+                DataSourceType = GridDataSourceSettingsDataSourceType.Array
+            };
+
+        gridStyle = String.Format("height: {0}; border: 0;", "auto");
+    }
+
+    private async Task GetListOfMeetings()
+    {
+        _spinnerClassSearching = "spinner-border spinner-border-sm";
+
+        meetingGridInfoResponseResult = await meetingService.GetGridMeetings(
+            "100",
+            searchScheduledMeetingsGridDTO.DateFrom,
+            searchScheduledMeetingsGridDTO.DateTo);
+
+        StateHasChanged();
+
+        if (meetingGridInfoResponseResult.Data.Count == 0)
+            gridMessage = "Δεν υπάρχουν διαθέσιμες συναντήσεις με τα κριτήρια που επιλέξατε...";
+        else
+            gridMessage = string.Empty;
+
+        if (meetingGridInfoResponseResult.Data != null)
+            gridStyle = String.Format("height: {0}; border: 0;", meetingGridInfoResponseResult.Data.Count < 10 ? "auto" : "400px");
+        else
+            gridStyle = String.Format("height: {0}; border: 0;", "auto");
+
+        _spinnerClassSearching = string.Empty;
+    }
+
+    // private async Task ChangeDateLocalization()
+    // {
+    //     await js.InvokeAsync<object>("changeSearchLocalization", new { });
+    // }
+}

@@ -1,0 +1,24 @@
+﻿@page "/editmeeting/{meetingId}"
+
+@using Blazored.SessionStorage;
+@using HouseholdChemistry.Client.Services.MeetingService;
+@using HouseholdChemistry.Shared.MeetingManagement;
+@using Microsoft.JSInterop;
+
+@inject IJSRuntime js
+@inject NavigationManager NavigationManager
+@inject IMeetingService MeetingService
+@inject ISessionStorageService sessionStorage
+
+<PageTitle>Οικοχημική - Καταχωρημένη Συνάντηση</PageTitle>
+
+<h3 id="meetingTitle">Επεξεργασία Καταχωρημένης Συνάντησης</h3>
+
+Meeting ID: @meetingId
+
+@code {
+
+    [Parameter]
+    public string meetingId { get; set; }
+
+}
