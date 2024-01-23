@@ -25,7 +25,7 @@
         public bool IsTelephoneCall { get; set; }
         public string fSIteCode { get; set; }
         public string fSIteDescription { get; set; }
-        public DateTime ActualClosedDate { get; set; }
+        public DateTime? ActualClosedDate { get; set; }
         public string Url { get; set; }
     }
 }
