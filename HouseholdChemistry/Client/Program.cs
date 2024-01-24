@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Blazored.SessionStorage;
 
 using Smart.Blazor;
+using HouseholdChemistry.Client.Services.MailService;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
@@ -26,6 +27,7 @@ builder.Services.AddBlazoredSessionStorage();
 builder.Services.AddOptions();
 
 builder.Services.AddScoped<IMeetingService, MeetingService>();
+builder.Services.AddScoped<IEmailService, EmailService>();
 
 builder.Services.AddSmart();
 

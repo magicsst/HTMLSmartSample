@@ -1,0 +1,194 @@
+﻿@page "/email"
+
+@using HouseholdChemistry.Client.Services.MailService;
+@using HouseholdChemistry.Shared.EmailManagement;
+@using System.Text;
+
+@inject IJSRuntime js
+@inject IEmailService emailService
+@inject ISessionStorageService sessionStorage
+@inject NavigationManager navManager
+
+<PageTitle>Οικοχημική - Συγκεντρωτικό Emailing Περιόδου</PageTitle>
+
+<br />
+
+<EditForm Model="searchEmailsDTO" OnValidSubmit="GetListOfEmails">
+    <div class="container">
+        <div class="row">
+            <div class="col">
+                <div class="form-group">
+                    <label for="dateFrom" class="form-check-label">Ημερομηνία Έναρξης Αναζήτησης</label>
+                    <DateTimePicker id="dateFrom"
+                                    class="form-control"
+                                    @bind-Value="@searchEmailsDTO.DateFrom"
+                                    DropDownDisplayMode="DateTimePickerDropDownDisplayMode.Calendar"
+                                    DropDownPosition="DropDownPosition.Bottom"
+                                    CalendarButton="true"
+                                    FormatString="dd-MM-yyyy" />
+                </div>
+            </div>
+            <div class="col">
+                <div class="form-group">
+                    <label for="dateTo" class="form-check-label">Ημερομηνία Λήξης Αναζήτησης</label>
+                    <DateTimePicker id="dateTo"
+                                    class="form-control"
+                                    @bind-Value="@searchEmailsDTO.DateTo"
+                                    DropDownDisplayMode="DateTimePickerDropDownDisplayMode.Calendar"
+                                    DropDownPosition="DropDownPosition.Bottom"
+                                    CalendarButton="true"
+                                    FormatString="dd-MM-yyyy" />
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="text-center mt-2">
+                <button class="btn btn-primary" type="submit" id="startSearch">
+                    <span class="@_spinnerClassSearching" role="status" aria-hidden="true"></span>
+                    Αναζήτηση
+                </button>
+            </div>
+        </div>
+        <br />
+
+        @if (emailInfoResponseResult.Data != null && emailInfoResponseResult.Data.Count > 0)
+        {
+            <div class="row">
+                <Grid Datasource="@emailInfoResponseResult.Data"
+                      DataSourceSettings="@dataSourceSettings"
+                      Sorting="@dateSorting"
+                      Behavior="@behavior"
+                      Appearance="@appearance"
+                      Selection="@selection"
+                      Filtering="@filtering"
+                      Style="@gridStyle"
+                      Layout="@gridRowLayout"
+                      OnReady="GridReady">
+                    <Columns>
+                        <Column DataField="ANumber" Label="A/A" Width="50"></Column>
+                        <Column DataField="CustomerName" Label="Επωνυμία" Width="200"></Column>
+                        <Column DataField="MeetingDateTime" Label="Ημερομηνία" DataType="date" CellsFormat="dd/MM/yyyy" Align="HorizontalAlignment.Right" CellsAlign="HorizontalAlignment.Right" Width="200"></Column>
+                        <Column DataField="City" Label="Πόλη" Width="200"></Column>
+                        <Column DataField="Phone" Label="Τηλέφωνο" Width="150"></Column>
+                        <Column DataField="Category" Label="Κατηγορία"></Column>
+                        <Column DataField="Notes" Label="Σχόλιο"></Column>
+                    </Columns>
+                </Grid>
+            </div>
+        }
+        else
+        {
+            <div class="row">
+                @gridMessage
+            </div>
+        }
+
+    </div>
+</EditForm>
+
+@code {
+    private SearchEmailsDTO searchEmailsDTO = new SearchEmailsDTO();
+    private ServiceResponse<List<GetDailyDataInfoDTO>> emailInfoResponseResult = new ServiceResponse<List<GetDailyDataInfoDTO>>();
+
+    private string _spinnerClassSearching = string.Empty;
+
+    #region "Grid Properties"
+    private string gridMessage = String.Empty;
+
+    private string gridStyle = string.Empty;
+
+    private GridDataSourceSettings dataSourceSettings = new GridDataSourceSettings();
+
+    private GridSorting dateSorting = new GridSorting()
+        {
+            Enabled = true
+        };
+
+    private GridBehavior behavior = new GridBehavior()
+        {
+            ColumnResizeMode = GridResizeMode.GrowAndShrink
+        };
+
+    private GridAppearance appearance = new GridAppearance()
+        {
+            AlternationCount = 2,
+            ShowRowLines = false,
+            ShowColumnLines = false
+        };
+
+    private GridSelection selection = new GridSelection()
+        {
+            Enabled = true,
+            Mode = GridSelectionMode.Extended,
+            CheckBoxes = new GridSelectionCheckBoxes()
+            {
+                Enabled = true
+            }
+        };
+
+    private GridFiltering filtering = new GridFiltering()
+        {
+            Enabled = true
+        };
+
+    private GridLayout gridRowLayout = new GridLayout() { RowHeight = 50 };
+
+    #endregion
+
+    protected override async Task OnInitializedAsync()
+    {
+        ChangeDateLocalization();
+
+        dataSourceSettings = new GridDataSourceSettings()
+            {
+                DataFields = new List<IGridDataSourceSettingsDataField>()
+            {
+                new GridDataSourceSettingsDataField() { Name = "ANumber", DataType = GridDataSourceSettingsDataFieldDataType.String },
+                new GridDataSourceSettingsDataField() { Name = "CustomerName", DataType = GridDataSourceSettingsDataFieldDataType.String },
+                new GridDataSourceSettingsDataField() { Name = "MeetingDateTime", DataType = GridDataSourceSettingsDataFieldDataType.Date },
+                new GridDataSourceSettingsDataField() { Name = "City", DataType = GridDataSourceSettingsDataFieldDataType.String },
+                new GridDataSourceSettingsDataField() { Name = "Phone", DataType = GridDataSourceSettingsDataFieldDataType.String },
+                new GridDataSourceSettingsDataField() { Name = "Category", DataType = GridDataSourceSettingsDataFieldDataType.String },
+                new GridDataSourceSettingsDataField() { Name = "Notes", DataType = GridDataSourceSettingsDataFieldDataType.String}
+            },
+                DataSourceType = GridDataSourceSettingsDataSourceType.Array
+            };
+
+        gridStyle = String.Format("height: {0}; border: 0;", "auto");
+    }
+
+    private async Task GetListOfEmails()
+    {
+        _spinnerClassSearching = "spinner-border spinner-border-sm";
+
+        emailInfoResponseResult = await emailService.GetDurationEmailDataObjects(
+            "100",
+            searchEmailsDTO.DateFrom,
+            searchEmailsDTO.DateTo);
+
+        StateHasChanged();
+
+        if (emailInfoResponseResult.Data.Count == 0)
+            gridMessage = "Δεν υπάρχουν διαθέσιμες συναντήσεις στο διάστημα που επιλέξατε...";
+        else
+            gridMessage = string.Empty;
+
+        if (emailInfoResponseResult.Data != null)
+            gridStyle = String.Format("height: {0}; border: 0;", emailInfoResponseResult.Data.Count < 10 ? "auto" : "400px");
+        else
+            gridStyle = String.Format("height: {0}; border: 0;", "auto");
+
+        _spinnerClassSearching = string.Empty;
+    }
+
+    private async void ChangeDateLocalization()
+    {
+        await js.InvokeAsync<object>("changeSearchLocalization", new { });
+    }
+
+    private void GridReady(object grid)
+    {
+        js.InvokeVoidAsync("setGridTooltip");
+    }
+}
